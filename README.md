@@ -4,7 +4,7 @@
 
 ## Day01
 
-### DDL操作数据库
+### 1. DDL操作数据库
 
 ````mysql
 -- 查询所有的数据库列表
@@ -59,7 +59,7 @@ DROP DATABASE db1_1;   -- 慎用
 
 ````
 
-### DDL_操作表
+### 2. DDL_操作表
 
 ```mysql
 /*
@@ -174,7 +174,7 @@ ALTER TABLE category1 CHANGE cdesc description VARCHAR(30);
 ALTER TABLE category1 DROP description;
 ```
 
-### DML_操作表中的数据（增删改）
+### 3. DML_操作表中的数据（增删改）
 
 ```mysql
 /*
@@ -252,7 +252,7 @@ INSERT INTO student VALUES(1,'孙悟空',20,'男','花果山');
 TRUNCATE TABLE student;
 ```
 
-### DQL_操作表中的数据（查）
+### 4. DQL_操作表中的数据（查）
 
 ```mysql
 /*
@@ -361,7 +361,7 @@ SELECT * FROM emp WHERE dept_name IS NOT NULL;
 
 ## Day02
 
-### DDL_表单操作
+### 1. DDL_表单操作
 
 ```mysql
 /*
@@ -500,7 +500,7 @@ SELECT * FROM emp LIMIT 6,3; -- 第三页 3-1=2 2*3=6
 -- 分页公式 起始行数 = (当前页码 - 1) * 每页显示条数
 ```
 
-### 约束
+### 2. 约束
 
 ```mysql
 /*
@@ -671,7 +671,7 @@ INSERT INTO emp4(eid,ename) VALUES(2,'柳岩');
 INSERT INTO emp4(eid,ename,sex) VALUES(3,'蔡徐坤','男');
 ```
 
-### MySql事务
+### 3. MySql事务
 
 ```mysql
 -- 创建账户表
@@ -812,6 +812,500 @@ select @@tx_isolation;
 
 -- 设置隔离级别为 读已提交                        
 set global transaction isolation level read committed ;
+```
+
+## Day03
+
+### 1. 多表的设计
+
+```mysql
+-- 创建部门表
+-- 一方,主表
+CREATE TABLE department(
+	 id INT PRIMARY KEY AUTO_INCREMENT,   
+	 dep_name VARCHAR(30),	
+	 dep_location VARCHAR(30)
+);
+
+-- 创建员工表
+-- 多方 ,从表
+CREATE TABLE employee(
+	eid INT PRIMARY KEY AUTO_INCREMENT, 
+	ename VARCHAR(20),
+	age INT,
+	dept_id INT
+);
+
+-- 添加2个部门 
+INSERT INTO department VALUES(NULL, '研发部','广州'),(NULL, '销售部', '深圳'); 
+SELECT * FROM department; 
+
+-- 添加员工,dep_id表示员工所在的部门 
+INSERT INTO employee (ename, age, dept_id) VALUES ('张百万', 20, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('赵四', 21, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('广坤', 20, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('小斌', 20, 2); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('艳秋', 22, 2); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('大玲子', 18, 2); 
+
+SELECT * FROM employee;
+
+-- 插入一条 不存在部门的数据
+INSERT INTO employee (ename,age,dept_id) VALUES('无名',35,3);
+
+
+/*
+	外键约束
+		作用: 外键约束可以让两张表之间产生有一个对应的关,从而保证了主从表引用的完整性
+	
+	外键
+		外键指的是在从表中与主表的主键对应的字段
+		
+	主表和从表
+		主表 主键id所在的表 ,一的一方
+		从表 外键字段所在的表,多的一方
+	
+	添加外键约束的语法格式
+		1.创建表的时候添加外键
+		create table 表名(
+			字段...
+			[constraint] [外键约束名] foreign key(外键字段名) references 主表(主键字段)
+		);
+	
+*/
+
+-- 创建员工表 添加外键
+CREATE TABLE employee(
+	eid INT PRIMARY KEY AUTO_INCREMENT,
+	ename VARCHAR(20),
+	age INT,
+	dept_id INT, -- 外键字段 指向了主表的主键
+	-- 添加外键约束
+	CONSTRAINT emp_dept_fk FOREIGN KEY(dept_id) REFERENCES department(id)
+);
+
+-- 正常添加数据 (从表外键 对应主表主键)
+INSERT INTO employee (ename, age, dept_id) VALUES ('张百万', 20, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('赵四', 21, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('广坤', 20, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('小斌', 20, 2); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('艳秋', 22, 2); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('大玲子', 18, 2); 
+
+-- 插入一条错误的数据
+-- 添加外键约束之后 就会产生一个强制的外键约束检查 保证数据的完整性和一致性
+INSERT INTO employee (ename, age, dept_id) VALUES ('错误', 18, 3); 
+
+
+/*
+	删除外键约束
+	语法格式
+		alter table 从表 drop foreign key 外键约束的名称
+
+*/
+
+-- 删除 employee表中 外键
+ALTER TABLE employee DROP FOREIGN KEY emp_dept_fk;
+
+-- 创建表之后添加外键
+-- 语法格式 alter table 从表 add CONSTRAINT emp_dept_fk FOREIGN KEY(dept_id) REFERENCES department(id)
+
+-- 简写 不写外键约束名 自动生成的外键约束 employee_ibfk_1
+ALTER TABLE employee ADD FOREIGN KEY(dept_id) REFERENCES department(id)
+
+/*
+	外键约束的注意事项
+		1. 从表的外键类型必须与主表的主键类型一致
+		2. 添加数据时,应该先添加主表的数据
+		3. 删除数据的时候 要先删除从表中的数据
+*/
+
+-- 添加一个新的部门
+INSERT INTO department(dep_name,dep_location) VALUES('市场部','北京');
+
+-- 添加一个属于市场部的员工
+INSERT INTO employee(ename,age,dept_id) VALUES('老胡',24,3);
+
+/*
+	级联删除
+		指的是在删除主表的数据的同时,可以删除与之相关的从表中的数据
+	
+	级联删除
+		on delete cascade
+*/
+-- 重新创建添加级联操作
+CREATE TABLE employee(
+	eid INT PRIMARY KEY AUTO_INCREMENT,
+	ename VARCHAR(20),
+	age INT,
+	dept_id INT,
+	CONSTRAINT emp_dept_fk FOREIGN KEY(dept_id) REFERENCES department(id)
+	-- 添加级联删除
+	ON DELETE CASCADE
+);
+
+-- 添加数据
+INSERT INTO employee (ename, age, dept_id) VALUES ('张百万', 20, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('赵四', 21, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('广坤', 20, 1); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('小斌', 20, 2); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('艳秋', 22, 2); 
+INSERT INTO employee (ename, age, dept_id) VALUES ('大玲子', 18, 2); 
+
+-- 删除部门编号为 2 的数据
+DELETE FROM department WHERE id = 2;
+
+/*
+	表与表之间的三种关系
+		一对多关系(1:n 常见): 班级和学生 部门和员工
+		多对多关系(n:n 常见): 学生与课程 演员和角色
+		一对一关系(1:1 了解): 身份证 和 人
+*/
+
+-- 一对多关系 省表与市表
+
+-- 创建省表 主表 一的一方
+CREATE TABLE province(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(20),
+	description VARCHAR(20)
+);
+
+-- 创建市表 从表 中 外键字段指向 主表的主键
+CREATE TABLE city(
+	cid INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(20),
+	description VARCHAR(20),
+	
+	-- 创建外键 添加外键约束
+	pid INT,
+	FOREIGN KEY(pid) REFERENCES province(id)
+);
+
+
+-- 多对多关系 演员与角色
+
+-- 演员表
+CREATE TABLE actor(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(20)
+);
+
+-- 角色表
+CREATE TABLE role(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(20)
+);
+
+-- 创建中间表
+CREATE TABLE actor_role(
+	-- 中间表的主键
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	
+	-- aid 字段 指向 actor表的主键
+	aid INT,
+	
+	-- rid 指向 role表的主键
+	rid INT
+);
+
+-- 添加外键约束
+
+-- aid字段添加外键约束
+ALTER TABLE actor_role ADD FOREIGN KEY(aid) REFERENCES actor(id);
+
+-- rid字段添加外键约束
+ALTER TABLE actor_role ADD FOREIGN KEY(rid) REFERENCES role(id);
+```
+
+### 2. 多表查询
+
+```mysql
+/*
+	多表查询的语法
+		select 字列表段 from 表名列表;
+
+*/
+
+CREATE DATABASE db3_2 CHARACTER SET utf8;
+
+#分类表 (一方 主表)
+CREATE TABLE category (
+  cid VARCHAR(32) PRIMARY KEY ,
+  cname VARCHAR(50)
+);
+
+#商品表 (多方 从表)
+CREATE TABLE products(
+  pid VARCHAR(32) PRIMARY KEY ,
+  pname VARCHAR(50),
+  price INT,
+  flag VARCHAR(2),		#是否上架标记为：1表示上架、0表示下架
+  category_id VARCHAR(32),
+  -- 添加外键约束
+  FOREIGN KEY (category_id) REFERENCES category (cid)
+);
+
+#分类数据
+INSERT INTO category(cid,cname) VALUES('c001','家电');
+INSERT INTO category(cid,cname) VALUES('c002','鞋服');
+INSERT INTO category(cid,cname) VALUES('c003','化妆品');
+INSERT INTO category(cid,cname) VALUES('c004','汽车');
+
+
+#商品数据
+INSERT INTO products(pid, pname,price,flag,category_id) VALUES('p001','小米电视机',5000,'1','c001');
+INSERT INTO products(pid, pname,price,flag,category_id) VALUES('p002','格力空调',3000,'1','c001');
+INSERT INTO products(pid, pname,price,flag,category_id) VALUES('p003','美的冰箱',4500,'1','c001');
+
+INSERT INTO products (pid, pname,price,flag,category_id) VALUES('p004','篮球鞋',800,'1','c002');
+INSERT INTO products (pid, pname,price,flag,category_id) VALUES('p005','运动裤',200,'1','c002');
+INSERT INTO products (pid, pname,price,flag,category_id) VALUES('p006','T恤',300,'1','c002');
+INSERT INTO products (pid, pname,price,flag,category_id) VALUES('p007','冲锋衣',2000,'1','c002');
+
+INSERT INTO products (pid, pname,price,flag,category_id) VALUES('p008','神仙水',800,'1','c003');
+INSERT INTO products (pid, pname,price,flag,category_id) VALUES('p009','大宝',200,'1','c003');
+
+
+/*
+	笛卡尔积
+	
+*/
+
+-- 多表查询 交叉连接查询 的查询结果会产生 笛卡尔积 是不能够使用的.
+SELECT * FROM products ,category;
+
+/*
+	1.内连接查询
+	2.外连接查询
+*/
+
+/*
+	内连接查询
+		特点 通过指定的条件 去匹配俩张表中的内容, 匹配不上的就不显示
+		
+		隐式内连接
+			语法格式: select 字段名... from 左表,右表 where 连接条件
+			
+		显式内连接
+			语法格式: select 字段名... from 左表 [inner] join 右表 on 连接条件
+			inner 可以省略
+	
+*/
+
+-- 1.查询所有商品信息和对应的分类信息
+-- 隐式内连接
+SELECT * FROM products , category WHERE category_id = cid;
+
+-- 2.查询商品表的商品名称 和 价格,以及商品的分类信息
+-- 多表查询中 可以使用给表起别名的方式 简化查询
+SELECT  
+	p.`pname`,
+	p.`price`,
+	c.`cname`
+FROM products p,category c WHERE p.`category_id` = c.`cid`;
+
+--  查询 格力空调是属于哪一分类下的商品 
+SELECT 
+	p.`pname`,
+	c.`cname`
+FROM products p, category c WHERE p.`category_id` = c.`cid` AND p.`pid` = 'p002';
+
+-- 1.查询所有商品信息和对应的分类信息
+-- 显式内连接
+SELECT 
+* 
+FROM products p 
+INNER JOIN category c ON p.`category_id` = c.`cid`;
+
+-- 2.查询鞋服分类下,价格大于500的商品名称和价格
+/*
+	查询之前要确定几件事情
+		1.查询几张表 products &  category
+		2.表的连接条件 p.`category_id` = c.`cid`; 从表.外键 = 主表.主键
+		3.查询所用到的字段  商品名称  价格
+		4.查询的条件 分类 = 鞋服,  价格 > 500
+*/
+
+SELECT 
+	p.`pname`,
+	p.`price`
+FROM products p 
+INNER JOIN category c ON p.`category_id` = c.`cid`
+WHERE p.`price` > 500 AND c.`cname` = '鞋服';
+
+/*
+	外连接查询
+		左外连接
+			语法格式 关键字 left [outer] join 
+				select 字段名 from 左表 left join 右表 on 连接条件
+			左外连接的特点
+				以左表为基准 匹配右表中的数据 如果能匹配上就显示
+				如果匹配不上, 左表中的数据正常显示,右表数据显示为null
+		
+		右外连接
+			语法格式 关键字 right [outer]  join
+				select 字段名 from 左表 right join 右表 on 条件
+			右外连接的特点
+				以右表为基准 匹配左表中的数据 如果能够匹配上 就显示
+				如果匹配不到 右表中的数据就正常显示 左表显示null
+		
+*/
+
+-- 左外连接查询
+SELECT 
+* 
+FROM category c 
+LEFT JOIN products p ON c.`cid` = p.`category_id`;
+
+--  查询每个分类下的商品个数
+/*
+	1.查询的表
+	2.查询的条件 分组 统计
+	3.查询的字段 分类 分类下商品个数信息
+	4.表的连接条件
+*/
+
+SELECT 
+	c.`cname`,
+	COUNT(p.`pid`)
+FROM
+-- 表连接
+category c  LEFT JOIN products p ON c.`cid` = p.`category_id`
+-- 分组
+GROUP BY c.`cname`;
+
+
+-- 右外连接查询
+SELECT * FROM products p RIGHT JOIN category c ON p.`category_id` = c.`cid`;
+```
+
+### 3. 子查询
+
+```mysql
+/*
+	子查询 subQuery
+		一条select语句的结果,作为另外一条select语句的一部分.
+	
+	子查询的特点
+		子查询必须要放在 小括号中
+		子查询作为父查询的条件使用(更多的时候)
+*/
+
+-- 查询价格最高的商品信息
+-- 1.查询出最高的价格
+SELECT MAX(price) FROM products ; -- 5000
+
+-- 2.根据最高价格 查出商品信息
+SELECT * FROM products WHERE price = 5000;
+
+-- 使用一条SQL完成 子查询方式
+SELECT * FROM products WHERE price = (SELECT MAX(price) FROM products );
+
+/*
+	子查询分类
+		where型子查询: 将子查询的结果 作为父查询的 比较条件使用.
+		from型子查询: 将子查询的查询结果作为一张表使用
+		exists 型子查询: 查询结果是单列多行的情况,可以将子查询的结果作为父查询的 in函数中的条件使用
+*/
+
+-- 子查询作为查询条件
+
+-- 1. 查询化妆品分类下的 商品名称 商品价格
+-- 查询出化妆品分类的 id
+SELECT cid FROM category WHERE cname = '化妆品'; -- c003
+
+-- 2.根据化妆品id 查询对应商品信息
+SELECT 
+	p.`pname`,
+	p.`price`
+FROM products p
+WHERE p.`category_id` = (SELECT cid FROM category WHERE cname = '化妆品');
+
+-- 查询小于平均价格的商品信息
+-- 1.求出平均价格
+SELECT AVG(price) FROM products; -- 1866
+
+-- 2.获取小于平均价格的商品信息
+SELECT 
+* 
+FROM products
+WHERE price < (SELECT AVG(price) FROM products);
+
+
+-- from型子查询方式 
+
+-- 查询商品中,价格大于500的商品信息,包括 商品名称 商品价格 商品所属分类名称
+SELECT * FROM category;
+
+SELECT  
+	p.`pname`,
+	p.`price`,
+	c.cname
+FROM products p 
+-- 注意 子查询的结果作为一张表时,要起一个别名 否则无法访问表中的字段
+INNER JOIN (SELECT * FROM category) c ON p.`category_id` = c.cid 
+WHERE p.`price` > 500;
+
+/*
+	子查询的结果是单列多行, 作为父查询的 in 函数中的条件使用
+	语法格式
+		select 字段名 from 表名 where 字段 in(子查询);
+*/
+-- 查询价格小于两千的商品,来自于哪些分类(名称)
+
+-- 1.查询小于两千的商品的 分类id
+SELECT DISTINCT category_id FROM products WHERE price < 2000;
+
+-- 2.根据分类的id 查询 分类的信息
+SELECT * FROM category 
+WHERE cid IN 
+(SELECT DISTINCT category_id FROM products WHERE price < 2000);
+
+
+-- 查询家电类 与 鞋服类下面的全部商品信息
+-- 1.首先要获取 家电类和鞋服类 分类id
+SELECT cid FROM category WHERE cname IN('家电','鞋服');
+
+-- 2.根据 分类id 查找商品信息
+SELECT 
+	* 
+FROM products WHERE category_id IN
+(SELECT cid FROM category WHERE cname IN('家电','鞋服'));
+
+-- 子查询的总结
+-- 1.子查询如果是一个字段(单列) ,那么就在where后面做条件
+-- 2.如果是多个字段(多列) 就当做一张表使用 (要起别名)
+
+/*
+	数据库三范式
+		三范式指的就是数据库设计的一个规则.
+		作用 就是为了创建 冗余较小 结构合理的数据库
+		范式 就是设计数据库的要求(规范)
+	
+	第一范式(1NF)  满足最低要求的范式
+	第二范式(2NF)	在满足第一范式的基础之上 进一步满足更多的规范
+	第三范式(3NF)	以此类推
+*/
+
+/**
+ * 
+ * 1NF: 列具有原子性，设计列要做到列不可拆分
+ * 
+ * 2NF: 一张表只能描述一件事情
+ * 
+ * 3NF: 消除传递依赖，表中的信息如果能够推导出来，就不要设计一个字段来单独记录(空间最省原则)
+ * 
+ * */
+ 
+/*
+	反三范式
+		指的是通过增加冗余或者重复数据 来提高数据库的读性能
+		浪费存储空间 节省查询时间(以空间换时间)
+	
+	冗余字段
+		某一个字段 属于一张表,但是 他又在多张表中都有出现
+*/
 ```
 
 
