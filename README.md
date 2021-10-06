@@ -1308,5 +1308,406 @@ FROM products WHERE category_id IN
 */
 ```
 
+## Day04
+
+### 1. MySql索引
+
+```mysql
+/*
+	索引概念
+		我们可以通过对数据表中的字段创建索引 来提高查询速度
+	
+	常见的索引的分类
+		主键索引 (primary key) 主键是一个唯一性的索引 每个表中只能有一个主键
+		唯一索引 (unique) 索引列的所有数据只能出现一次,必须是唯一
+		普通索引 (index) 最常见的索引 作用就是提高对数据的访问速度
+		
+	表对应的索引被保存在一个索引文件中, 如果对数据进行增删改操作,那么mysql就需要对索引进行更新
+	
+*/
+
+/*
+	主键索引的创建
+		1.创建表的时候 直接添加主键
+		2.创建表之后 添加索引 使用 DDL
+*/
+
+-- 为demo01表添加 主键索引
+ALTER TABLE demo01 ADD PRIMARY KEY (did);
+
+/*
+	唯一索引的创建
+		create unique index 索引名 on 表名(列名(长度))
+*/
+
+-- 为demo01表的 hobby字段添加唯一索引
+CREATE UNIQUE INDEX ind_hobby ON demo01(hobby);
+
+-- 添加唯一索引的列,列的所有值都只能出现一次
+INSERT INTO demo01 VALUES(1,'tom','篮球');
+
+-- Duplicate entry '篮球' for key 'ind_hobby'
+-- 唯一索引保证了数据的唯一性, 同时也提升了查询效率
+INSERT INTO demo01 VALUES(2,'jack','篮球');
+
+
+/*
+	普通索引的创建
+		1.create index 索引名 on 表名(列名[长度])
+		2.ALTER TABLE 表名 ADD INDEX 索引名 (列名)
+*/
+-- 为 demo01表中的 dname字段添加普通索引
+ALTER TABLE demo01 ADD INDEX ind_dname(dname);
+
+/*
+	删除索引
+		ALTER  TABLE 表名  DROP INDEX 索引名;
+*/
+-- 删除dname字段上的索引
+ALTER TABLE demo01 DROP INDEX ind_dname;
+
+
+-- 导入测试索引.sql 文件
+
+-- test_index 表中有 500万条数据
+SELECT COUNT(*) FROM test_index;
+
+-- 通过id查询一条数据
+SELECT * FROM test_index WHERE id = 100001;
+
+-- 通过 dname字段查询 耗时2秒左右
+SELECT * FROM test_index WHERE dname = 'name5200';
+
+-- 执行分组查询 dname没有添加索引 36秒
+SELECT * FROM test_index GROUP BY dname;
+
+-- dname字段添加索引
+ALTER TABLE test_index ADD INDEX dname_indx(dname);
+
+SELECT * FROM test_index GROUP BY dname;
+
+/*
+	索引的总结
+		创建索引的原则
+			优先选择为 经常出现在 查询条件或者排序 分组后面的字段 创建索引.
+		
+	索引的优点
+		1.可以大大的提高查询速度
+		2.减少查询中分组和排序的时间
+		3.通过创建唯一索引保证数据的唯一性
+		
+	索引缺点
+		1.创建和维护索引需要时间,数据量越大 时间越长.
+		2.表中的数据进行增删改操作时,索引也需要进行维护,降低了维护的速度
+		3.索引文件需要占据磁盘空间
+*/
+```
+
+### 2. MySql视图
+
+```mysql
+/*
+	什么是视图
+		视图是由查询结果形成的一张虚拟的表.
+	
+	视图的作用
+		如果某个查询的结果出现的十分频繁,并且查询语法比较复杂.
+		那么这个时候,就可以根据这条查询语句构建一张视图 方便查询
+		
+	视图的语法
+		create view 视图名[字段列表] as select 查询语句;
+		
+		view 表示视图
+		字段列表 一般跟后面的查询语句 相同
+		as select 查询语句 表示给视图提供数据的 查询语句
+*/
+-- 创建视图
+-- 1.查询所有商品和商品对应分类的信息
+SELECT * FROM products p LEFT JOIN category c ON p.`category_id` = c.`cid`;
+
+-- 2.根据上面的查询语句 构建一张视图
+CREATE VIEW products_category_view AS
+SELECT * FROM products p LEFT JOIN category c ON p.`category_id` = c.`cid`;
+
+-- 操作视图 就相当于操作一张 只读表
+SELECT * FROM products_category_view;
+
+
+-- 使用视图进行查询操作
+
+-- 查询各个分类下的商品平均价格
+/*
+	1.查询哪些表 分类表 商品表
+	2.查询条件是什么  分组操作
+	3.要查询的字段	平均价格,分类名
+	4.多表的连接条件 category_id = cid
+*/
+
+-- 使用多表方式查询
+SELECT 
+	c.`cname`,
+	AVG(p.`price`)
+FROM products p LEFT JOIN category c ON p.`category_id` = c.`cid`
+GROUP BY c.`cname`;
+
+
+-- 通过视图查询
+SELECT 
+	pc.`cname`,
+	AVG(pc.`price`)
+FROM products_category_view pc GROUP BY pc.`cname`;
+
+
+-- 查询鞋服分类下最贵的商品的全部信息
+-- 多表查询
+-- 1.查询鞋服分类中 最高的商品价格
+SELECT 
+	MAX(p.`price`)
+FROM products p LEFT JOIN category c ON p.`category_id` = c.`cid` 
+WHERE c.`cname` = '鞋服';
+
+-- 2.进行子查询 将上面的查询结果作为条件
+SELECT 
+	*
+FROM products p LEFT JOIN category c 
+ON p.`category_id` = c.`cid`
+WHERE c.`cname` = '鞋服' AND p.`price` = 
+(
+	SELECT 
+		MAX(p.`price`)
+	FROM products p LEFT JOIN category c ON p.`category_id` = c.`cid` 
+	WHERE c.`cname` = '鞋服'
+);
+
+-- 通过视图查询
+SELECT 
+	*
+FROM products_category_view pc 
+WHERE pc.`cname` = '鞋服' AND pc.`price` = 
+(
+-- 子查询 求出鞋服分类下的最高价格
+SELECT MAX(pc.`price`) FROM products_category_view pc
+WHERE pc.`cname` = '鞋服' );
+
+
+/*
+	视图与表的区别
+		1.视图是建立在表的基础之上
+		2.通过视图 不要进行增删改操作,视图主要就是用来简化查询
+		3.删除视图 表不受影响,删除表 视图就不在起作用了.
+*/
+```
+
+### 3. MySql存储过程
+
+```mysql
+/*
+	存储过程其实就是一堆 SQL 语句的合并。中间加入了一些逻辑控制。
+	
+	存储过程的优缺点
+		优点
+			1.调试完成就可以稳定运行 (在业务需求相对稳定情况)
+			2.存储过程可以减少，业务系统与数据库的交互
+		
+		缺点
+			1.互联网项目中 较少使用存储过程,因为 业务需求变化太快
+			2.存储过程的移植十分困难.
+			
+*/
+# 商品表
+CREATE TABLE goods(
+  gid INT,
+  NAME VARCHAR(20),
+  num INT  -- 库存
+);
+
+#订单表
+CREATE TABLE orders(
+  oid INT,
+  gid INT,
+  price INT -- 订单价格
+);
+
+# 向商品表中添加3条数据
+INSERT INTO goods VALUES(1,'奶茶',20);
+INSERT INTO goods VALUES(2,'绿茶',100);
+INSERT INTO goods VALUES(3,'花茶',25);
+
+/*
+	创建存储过程方式1:
+		
+	语法格式
+		delimiter $$ -- 声明语句的结束符号 自定义 ||
+		create procedure 存储过程名称() -- 声明存储过程
+		begin   -- 开始编写存储过程
+		
+			-- 要执行的SQL
+			
+		end $$ -- 存储过程结束
+*/
+
+-- 编写存储过程, 查询所有商品数据
+DELIMITER $$
+CREATE PROCEDURE goods_proc()
+BEGIN 
+	-- 查询商品数据
+	SELECT * FROM goods;
+END $$
+
+-- 调用存储过程 call
+CALL goods_proc;
+
+
+/*
+	存储过程创建方式2: 创建一个接收参数的存储过程
+	
+	语法格式
+		create procedure 存储过程名(IN 参数名 参数类型)
+*/
+
+-- 创建存储过程 接收一个商品id, 根据id删除数据
+DELIMITER $$
+CREATE PROCEDURE goods_proc02(IN goods_id INT)
+BEGIN 
+	-- 根据id删除商品数据
+	DELETE FROM goods WHERE gid = goods_id;
+END $$
+
+-- 调用存储过程 传递参数
+CALL goods_proc02(1);
+
+/*
+	存储过程创建方式3 获取存储过程的返回值
+	
+	1.变量的赋值
+		SET @变量名 = 值
+	2.OUT 输出参数
+		OUT 变量名 数据类型
+*/
+
+-- 向订单表 插入一条数据, 返回1,表示插入成功
+DELIMITER $$
+CREATE PROCEDURE orders_proc(IN o_oid INT,IN o_gid INT ,IN o_price INT,OUT out_num INT)
+BEGIN 
+	-- 执行插入操作
+	INSERT INTO orders VALUES(o_oid,o_gid,o_price);
+	-- 设置 out_num 值为1
+	SET @out_num = 1; 
+	
+	-- 返回 out_num
+	SELECT @out_num;
+END $$
+
+-- 调用存储过程 获取返回值
+CALL orders_proc(1,2,50,@out_num);
+```
+
+### 4. MySql触发器
+
+```mysql
+/*
+	触发器
+		当我们执行一条sql语句的时候，这条sql语句的执行会自动去触发执行其他的sql语句。
+	
+	触发器创建的四个要素
+		1. 监视地点（table） 
+		2. 监视事件（insert/update/delete）  
+		3. 触发时间（before/after）  
+		4. 触发事件（insert/update/delete） 
+	
+	创建触发器
+	语法结构
+		delimiter $ -- 自定义结束符号
+		create trigger  触发器名
+		after/before(insert/update/delete) -- 触发的时机 和监视的事件
+		on tableName -- 触发器所在表
+		for each row -- 固定写法 表示行触发器
+		begin
+			-- 被触发的事件
+		end $
+*/
+-- 向商品表中插入数据
+INSERT INTO goods VALUES(4,'book',40);
+
+
+-- 需求: 在下订单的时候，对应的商品的库存量要相应的减少，卖出商品之后减少库存量
+/*
+	监视的表 orders
+	监视的事件 insert
+	触发的时间 after
+	触发的事件 update
+*/
+-- 1.修改结束符号
+DELIMITER $
+-- 2.创建触发器
+CREATE TRIGGER t1
+-- 3.设置触发的时间 以及监视的事件 监视的表
+AFTER INSERT ON orders
+-- 4.行触发器
+FOR EACH ROW
+-- 5.触发后要执行的操作
+BEGIN
+	-- 执行修改库存的操作 订单+1 库存-1
+	UPDATE goods SET num = num - 1 WHERE gid = 4;
+END $
+
+-- 向orders表插入一个订单
+INSERT INTO orders VALUES(1,4,25);
+```
+
+### 5.  DCL操作用户&权限
+
+```mysql
+/*
+	DCL 创建用户
+	语法结构
+		create user '用户名'@'主机名' identified by '密码';
+*/
+
+-- 创建 admin1 用户，只能在 localhost 这个服务器登录 mysql 服务器，密码为 123456
+CREATE USER 'admin1'@'localhost' IDENTIFIED BY '123456';
+
+-- 创建 admin2 用户可以在任何电脑上登录 mysql 服务器，密码为 123456
+CREATE USER 'admin2'@'%'  IDENTIFIED BY '123456'; -- %表示在任意电脑都可以登录
+
+/*
+	用户的授权
+	语法格式
+		grant 权限1,权限2 ... on 数据库名.表 to '用户名'@'主机名'
+*/
+--  给 admin1 用户分配对 db4 数据库中 products 表的 操作权限：查询 
+GRANT SELECT ON db4.`products` TO 'admin1'@'localhost';
+
+-- 给 admin2 用户分配所有权限，对所有数据库的所有表
+GRANT ALL ON *.* TO 'admin2'@'%';
+
+-- 查询 商品表
+SELECT * FROM products;
+
+-- 插入商品数据
+-- INSERT command denied to user 'admin1'@'localhost' for table 'products'
+-- admin1用户只有查询权限
+INSERT INTO products VALUES('p010','小鸟伏特加',3000,1,NULL);
+
+
+/*
+	查看用户权限
+	语法格式
+		show grants for '用户名'@'主机名';
+*/
+
+-- 查看root用户的权限
+SHOW GRANTS FOR 'root'@'localhost';
+
+-- 查看 admin1 用户的权限
+SHOW GRANTS FOR 'admin1'@'localhost';
+
+-- 删除用户
+DROP USER 'admin1'@'localhost';
+
+-- 查询用户
+SELECT * FROM USER;
+```
+
 
 
